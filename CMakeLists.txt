@@ -1,8 +1,6 @@
+cmake_minimum_required(VERSION 4.4)
+project(TiredPacker VERSION 1.0 LANGUAGES CXX)
 include(FetchContent)
-
-include(nlohmann)
-include(rectpack2d)
-include(PNGLib)
 
 # Add cmake directory to module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -16,6 +14,11 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG_BUILD>)
 
+
+include(nlohmann)
+include(rectpack2d)
+include(PNGLib)
+
 setup_nlohmann_json()
 setup_rectpack2d()
 setup_pnglib()
@@ -25,5 +28,5 @@ src/main.cpp
 src/SpritePacker.cpp
 src/PngImage.cpp)
 
-target_link_libraries(TiredPacker PRIVATE libpng::libpng rectpack2d::rectpack2d nlohmann_json::nlohmann_json)
+target_link_libraries(TiredPacker PRIVATE PNG::PNG rectpack2D::rectpack2D nlohmann_json::nlohmann_json)
 
