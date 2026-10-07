@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 4.4)
-project(TiredPacker VERSION 1.0 LANGUAGES CXX)
+project(TiredPacker VERSION 1.0 LANGUAGES C CXX)
 include(FetchContent)
 
 # Add cmake directory to module path
@@ -14,19 +14,33 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_definitions($<$<CONFIG:Debug>:DEBUG_BUILD>)
 
-
 include(nlohmann)
 include(rectpack2d)
-include(PNGLib)
+include(wuffs)
+include(fpng)
+include(argparse)
+include(picohash)
 
 setup_nlohmann_json()
 setup_rectpack2d()
-setup_pnglib()
+setup_wuffs()
+setup_fpng()
+setup_picohash()
+setup_argparse()
 
 add_executable(TiredPacker 
 src/main.cpp
-src/SpritePacker.cpp
-src/PngImage.cpp)
+src/GeneratedAtlas.cpp
+src/AtlasMetadata.cpp
+src/ImageFile.cpp
+src/AtlasExplorer.cpp
+)
 
-target_link_libraries(TiredPacker PRIVATE PNG::PNG rectpack2D::rectpack2D nlohmann_json::nlohmann_json)
+target_link_libraries(TiredPacker PRIVATE
+    wuffs
+    FPNG::FPNG
+    rectpack2D
+    nlohmann_json::nlohmann_json
+    argparse::argparse
+    PICOHASH::PICOHASH)
 

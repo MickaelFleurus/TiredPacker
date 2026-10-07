@@ -1,17 +1,29 @@
 #pragma once
 
-#include <string>
+#include <filesystem>
 #include <vector>
 
-namespace tired {
-struct AtlasSprite {
-    std::string name;
-    int x = 0, y = 0, width = 0, height = 0;
-    int sourceWidth = 0, sourceHeight = 0;
-    int offsetX = 0, offsetY = 0;
+#include "ImageFile.h"
+
+class CAtlasMetadata {
+public:
+    struct SEntry {
+        uint width;
+        uint height;
+        uint x;
+        uint y;
+        uint64_t fileSize;
+        std::string lastModified;
+    };
+    struct SData {
+        std::vector<SEntry> entries;
+    };
+
+    CAtlasMetadata(std::filesystem::path metadataFilePath);
+
+    bool CheckForChanges(const std::vector<CImageFile>& files) const;
+
+private:
+    std::vector<SData> mData;
+    const std::filesystem::path mMetadataFilePath;
 };
-struct AtlasMetadata {
-    int width = 0, height = 0;
-    std::vector<AtlasSprite> sprites;
-};
-}

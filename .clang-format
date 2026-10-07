@@ -1,0 +1,43 @@
+---
+BasedOnStyle: LLVM
+
+# Indentation
+IndentWidth: 4
+ContinuationIndentWidth: 4
+IndentAccessModifiers: false
+AccessModifierOffset: -4
+
+# Brace placement
+BreakBeforeBraces: Attach
+BreakConstructorInitializers: BeforeComma
+
+# Constructor initialization list
+PackConstructorInitializers: NextLine
+ConstructorInitializerIndentWidth: 4
+
+# Include ordering
+SortIncludes: true
+IncludeBlocks: Regroup
+IncludeCategories:
+  - Regex: '^<.*\.hpp>$|^<.*\.h>$'
+    Priority: 2
+    SortPriority: 2
+    CaseSensitive: false
+  - Regex: "^<[^/]*>$"
+    Priority: 1
+    SortPriority: 1
+    CaseSensitive: false
+  - Regex: '^"engine/.*'
+    Priority: 3
+    SortPriority: 3
+    CaseSensitive: false
+  - Regex: '^".*'
+    Priority: 4
+    SortPriority: 4
+    CaseSensitive: false
+
+# Other preferences
+AllowShortFunctionsOnASingleLine: false
+DerivePointerAlignment: false
+PointerAlignment: Left
+AlwaysBreakTemplateDeclarations: Yes
