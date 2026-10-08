@@ -25,6 +25,13 @@ struct SMetadataEntry {
     std::string lastModified;
 };
 
+struct SAtlasMetadata {
+    int version = 0;
+    std::map<std::string, SMetadataEntry> entries;
+};
+
+constexpr int kAtlasMetadataVersion = ATLAS_METADATA_VERSION;
+
 constexpr int nextPowerOfTwo(int value) {
     if (value <= 1) {
         return 1;
@@ -82,11 +89,11 @@ std::vector<SPlacement> Pack(const std::vector<rectpack2D::rect_wh>& sizes,
     return out;
 }
 
-std::expected<std::map<std::string, SMetadataEntry>, std::string>
+std::expected<SAtlasMetadata, std::string>
 ParseJsonFile(const std::filesystem::path& filePath) {
     using json = nlohmann::json;
 
-    std::map<std::string, SMetadataEntry> datas;
+    SAtlasMetadata metadata;
     std::ifstream file(filePath);
     if (!file.is_open()) {
         return std::unexpected<std::string>(
@@ -100,6 +107,7 @@ ParseJsonFile(const std::filesystem::path& filePath) {
             std::format("Metadata file does not contain 'atlases' section: {}",
                         filePath.string()));
     }
+    metadata.version = j.value("version", 0);
 
     for (const auto& atlasJson : j["atlases"]) {
 
@@ -111,11 +119,12 @@ ParseJsonFile(const std::filesystem::path& filePath) {
             SMetadataEntry entry;
             entry.fileSize = entryJson.value("fileSize", 0ULL);
             entry.lastModified = entryJson.value("lastModified", "");
-            datas.emplace(entryJson.value("file", std::string()), entry);
+            metadata.entries.emplace(entryJson.value("file", std::string()),
+                                     entry);
         }
     }
 
-    return datas;
+    return metadata;
 }
 } // namespace
 
@@ -131,23 +140,20 @@ bool AreMetadataValid(const std::filesystem::path& metadataFilePath,
                         "Removing the file and regerating it.",
                         metadataFilePath.string(), expectedData.error()));
     }
-    const auto& jsonData = expectedData.value();
-    if (files.size() != jsonData.size()) {
-        return true;
+    const auto& metadata = expectedData.value();
+    if (metadata.version != kAtlasMetadataVersion ||
+        files.size() != metadata.entries.size()) {
+        return false;
     }
-    for (const auto& data : jsonData) {
-
-        for (size_t i = 0; i < files.size(); ++i) {
-            const auto& file = files.at(data.first);
-            const auto& entry = jsonData.at(data.first);
-            if (file.fileSize() != entry.fileSize ||
-                file.lastModified() != entry.lastModified) {
-                return true;
-            }
+    for (const auto& [fileName, entry] : metadata.entries) {
+        const auto file = files.find(fileName);
+        if (file == files.end() || file->second.fileSize() != entry.fileSize ||
+            file->second.lastModified() != entry.lastModified) {
+            return false;
         }
     }
 
-    return false;
+    return true;
 }
 
 std::map<std::string, CImageFile>
@@ -187,6 +193,7 @@ void Generate(const std::filesystem::path& outputFolder,
     auto placements = Pack(rects, fileNames, atlases);
     // Save the json metadata file
     nlohmann::json j;
+    j["version"] = kAtlasMetadataVersion;
     j["atlases"] = nlohmann::json::array();
     std::size_t atlasIndex = 0;
     std::vector<std::vector<uint8_t>> atlasPixels;

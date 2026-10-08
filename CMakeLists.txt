@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 4.4)
 project(TiredPacker VERSION 1.0 LANGUAGES C CXX)
 include(FetchContent)
 
+set(ATLAS_METADATA_VERSION 1)
+
 # Add cmake directory to module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build static libraries" FORCE)
@@ -43,4 +45,7 @@ target_link_libraries(TiredPacker PRIVATE
     nlohmann_json::nlohmann_json
     argparse::argparse
     PICOHASH::PICOHASH)
+
+target_compile_definitions(TiredPacker PRIVATE
+    ATLAS_METADATA_VERSION=${ATLAS_METADATA_VERSION})
 
