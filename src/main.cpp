@@ -2,13 +2,11 @@
 #include <filesystem>
 
 #include <argparse/argparse.hpp>
-#include <fpng.h>
 
 #include "AtlasExplorer.h"
 
 int main(int argc, char* argv[]) {
 
-    fpng::fpng_init();
     std::filesystem::path path, outputFolder;
     argparse::ArgumentParser program("TiredPacker");
     program.add_argument("rootFolder")

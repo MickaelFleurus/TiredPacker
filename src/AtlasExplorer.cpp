@@ -3,6 +3,8 @@
 #include <format>
 #include <iostream>
 
+#include <fpng.h>
+
 #include "AtlasUtils.h"
 
 namespace {
@@ -11,6 +13,7 @@ constexpr std::string_view kAtlasMetadataFileName{"{}_metadata.json"};
 
 CAtlasExplorer::CAtlasExplorer(const std::filesystem::path& resourceFolder)
     : mResourceFolder(resourceFolder) {
+    fpng::fpng_init();
 }
 
 int CAtlasExplorer::Explore(const std::filesystem::path& outputFolder) {

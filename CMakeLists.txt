@@ -21,31 +21,39 @@ include(rectpack2d)
 include(wuffs)
 include(fpng)
 include(argparse)
-include(picohash)
+include(GoogleTest)
 
 setup_nlohmann_json()
 setup_rectpack2d()
 setup_wuffs()
 setup_fpng()
-setup_picohash()
+setup_gtest()
+
 setup_argparse()
 
-add_executable(TiredPacker 
-src/main.cpp
-src/AtlasUtils.cpp
-src/ImageFile.cpp
-src/AtlasExplorer.cpp
-src/WuffsImplementation.cpp
+add_library(TiredPackerLib
+    src/AtlasUtils.cpp
+    src/ImageFile.cpp
+    src/AtlasExplorer.cpp
+    src/WuffsImplementation.cpp
 )
 
-target_link_libraries(TiredPacker PRIVATE
+target_link_libraries(TiredPackerLib PUBLIC
     wuffs
     FPNG::FPNG
     rectpack2D
     nlohmann_json::nlohmann_json
-    argparse::argparse
-    PICOHASH::PICOHASH)
+)
 
-target_compile_definitions(TiredPacker PRIVATE
+target_compile_definitions(TiredPackerLib PRIVATE
     ATLAS_METADATA_VERSION=${ATLAS_METADATA_VERSION})
 
+add_executable(TiredPacker 
+src/main.cpp
+)
+
+target_link_libraries(TiredPacker PRIVATE TiredPackerLib
+    argparse::argparse)
+
+
+add_subdirectory(tests)
