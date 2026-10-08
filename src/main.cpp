@@ -1,30 +1,34 @@
 
-// Go through the folders
-// Check if there was a change in the files
-// Regenerate the sprite sheet if there was a change
+#include <filesystem>
 
 #include <argparse/argparse.hpp>
-#include <filesystem>
+#include <fpng.h>
 
 #include "AtlasExplorer.h"
 
-int main(int argc, char *argv[]) {
-  std::filesystem::path path;
-  argparse::ArgumentParser program("TiredPacker");
-  program.add_argument("rootFolder")
-      .help("Path to the resource folder")
-      .required()
-      .store_into(path);
+int main(int argc, char* argv[]) {
 
-  try {
-    program.parse_args(argc, argv);
-  } catch (const std::runtime_error &err) {
-    std::cerr << err.what() << std::endl;
-    std::cerr << program;
-    return 1;
-  }
+    fpng::fpng_init();
+    std::filesystem::path path, outputFolder;
+    argparse::ArgumentParser program("TiredPacker");
+    program.add_argument("rootFolder")
+        .help("Path to the resource folder")
+        .required()
+        .store_into(path);
+    program.add_argument("-o")
+        .help("Output folder for the generated atlas")
+        .required()
+        .store_into(outputFolder);
 
-  CAtlasExplorer explorer(path);
-  explorer.Explore();
-  return 0;
+    try {
+        program.parse_args(argc, argv);
+    } catch (const std::runtime_error& err) {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        return -1;
+    }
+    std::filesystem::create_directories(outputFolder);
+
+    CAtlasExplorer explorer(path);
+    return explorer.Explore(outputFolder);
 }

@@ -7,21 +7,13 @@
 class CImageFile {
 public:
     CImageFile(std::filesystem::path imagePath);
-    bool Load();
+    void Load();
 
-    uint32_t width() const noexcept {
-        return mWidth;
-    }
-    uint32_t height() const noexcept {
-        return mHeight;
-    }
-    const std::vector<uint8_t>& pixels() const noexcept {
-        return mPixels;
-    }
+    uint32_t width() const noexcept;
+    uint32_t height() const noexcept;
+    const std::vector<uint8_t>& pixels() const noexcept;
 
-    std::string fileName() const noexcept {
-        return mPath.filename().string();
-    }
+    std::string fileName() const noexcept;
     uint64_t fileSize() const noexcept;
     std::string lastModified() const noexcept;
 

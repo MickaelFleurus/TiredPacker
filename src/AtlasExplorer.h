@@ -2,10 +2,10 @@
 
 class CAtlasExplorer {
 public:
-  CAtlasExplorer(std::filesystem::path resourceFolder);
+    CAtlasExplorer(const std::filesystem::path& resourceFolder);
 
-  void Explore();
+    int Explore(const std::filesystem::path& outputFolder);
 
 private:
-  const std::filesystem::path mResourceFolder;
+    const std::filesystem::path& mResourceFolder;
 };

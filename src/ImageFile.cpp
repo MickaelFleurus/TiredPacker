@@ -23,6 +23,22 @@ public:
 CImageFile::CImageFile(std::filesystem::path imagePath) : mPath(imagePath) {
 }
 
+uint32_t CImageFile::width() const noexcept {
+    return mWidth;
+}
+
+uint32_t CImageFile::height() const noexcept {
+    return mHeight;
+}
+
+const std::vector<uint8_t>& CImageFile::pixels() const noexcept {
+    return mPixels;
+}
+
+std::string CImageFile::fileName() const noexcept {
+    return mPath.filename().string();
+}
+
 uint64_t CImageFile::fileSize() const noexcept {
     return std::filesystem::file_size(mPath);
 }
@@ -35,18 +51,20 @@ std::string CImageFile::lastModified() const noexcept {
     return std::format("{}", timestamp);
 }
 
-bool CImageFile::Load() {
+void CImageFile::Load() {
 
     std::ifstream file(mPath.c_str(), std::ios::binary | std::ios::ate);
     if (!file.is_open()) {
-        return false;
+        throw std::runtime_error(
+            std::format("Failed to open image file: {}", mPath.string()));
     }
 
     std::streamsize size = file.tellg();
     file.seekg(0, std::ios::beg);
     std::vector<uint8_t> buffer(size);
     if (!file.read(reinterpret_cast<char*>(buffer.data()), size)) {
-        return false;
+        throw std::runtime_error(
+            std::format("Failed to read image file: {}", mPath.string()));
     }
     file.close();
 
@@ -59,8 +77,9 @@ bool CImageFile::Load() {
         wuffs_aux::DecodeImage(callbacks, input);
 
     if (!result.error_message.empty()) {
-        // std::cerr << "Decoding error: " << result.error_message << "\n";
-        return false;
+        throw std::runtime_error(
+            std::format("Failed to decode image file[] : {}", mPath.string(),
+                        result.error_message));
     }
 
     mWidth = result.pixbuf.pixcfg.width();
@@ -68,7 +87,8 @@ bool CImageFile::Load() {
     const wuffs_base__table_u8 plane = result.pixbuf.plane(0);
     if (plane.width != mWidth * 4 || plane.height != mHeight ||
         plane.stride < plane.width) {
-        return false;
+        throw std::runtime_error(std::format(
+            "Invalid image dimensions in file: {}", mPath.string()));
     }
 
     mPixels.resize(static_cast<std::size_t>(mWidth) * mHeight * 4);
@@ -77,5 +97,4 @@ bool CImageFile::Load() {
                     plane.ptr + static_cast<std::size_t>(y) * plane.stride,
                     plane.width);
     }
-    return true;
 }

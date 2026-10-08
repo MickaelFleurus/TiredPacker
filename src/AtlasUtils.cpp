@@ -1,6 +1,7 @@
-#include "GeneratedAtlas.h"
+#include "AtlasUtils.h"
 
 #include <algorithm>
+#include <expected>
 #include <fstream>
 #include <numeric>
 
@@ -8,17 +9,20 @@
 #include <nlohmann/json.hpp>
 #include <rectpack2D/finders_interface.h>
 
-#include "ImageFile.h"
-
 namespace {
-struct Placement {
+struct SPlacement {
     int atlas;
-    std::size_t imgId;
+    std::string fileName;
     rectpack2D::rect_xywh rect;
 };
 
-struct AtlasInfo {
+struct SAtlasInfo {
     int w = 0, h = 0;
+};
+
+struct SMetadataEntry {
+    uint64_t fileSize;
+    std::string lastModified;
 };
 
 constexpr int nextPowerOfTwo(int value) {
@@ -33,9 +37,9 @@ constexpr int nextPowerOfTwo(int value) {
     return power;
 }
 
-std::vector<Placement>
-pack_atlases(const std::vector<rectpack2D::rect_wh>& sizes,
-             std::vector<AtlasInfo>& atlases) {
+std::vector<SPlacement> Pack(const std::vector<rectpack2D::rect_wh>& sizes,
+                             const std::vector<std::string>& fileNames,
+                             std::vector<SAtlasInfo>& atlasesOut) {
     using namespace rectpack2D;
     constexpr bool allow_flip = false;
     using spaces_type = empty_spaces<allow_flip, default_empty_spaces>;
@@ -53,18 +57,18 @@ pack_atlases(const std::vector<rectpack2D::rect_wh>& sizes,
                   return sizes[a].w * sizes[a].h > sizes[b].w * sizes[b].h;
               });
 
-    std::vector<Placement> out(sizes.size());
-    atlases.clear();
+    std::vector<SPlacement> out(sizes.size());
+    atlasesOut.clear();
 
     while (!pending.empty()) {
         spaces_type bin(rect_wh(max_side, max_side));
         std::vector<std::size_t> leftover;
-        AtlasInfo info;
-        const int atlas_index = (int)atlases.size();
+        SAtlasInfo info;
+        const int atlas_index = (int)atlasesOut.size();
 
         for (std::size_t id : pending) {
             if (const auto placed = bin.insert(sizes[id])) {
-                out[id] = {atlas_index, id, *placed};
+                out[id] = {atlas_index, fileNames[id], *placed};
                 info.w = std::max(info.w, placed->x + placed->w);
                 info.h = std::max(info.h, placed->y + placed->h);
             } else {
@@ -72,45 +76,115 @@ pack_atlases(const std::vector<rectpack2D::rect_wh>& sizes,
             }
         }
 
-        atlases.push_back(info); // tight bounds of what was actually placed
+        atlasesOut.push_back(info);
         pending = std::move(leftover);
     }
     return out;
 }
+
+std::expected<std::map<std::string, SMetadataEntry>, std::string>
+ParseJsonFile(const std::filesystem::path& filePath) {
+    using json = nlohmann::json;
+
+    std::map<std::string, SMetadataEntry> datas;
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        return std::unexpected<std::string>(
+            std::format("Failed to open metadata file: {}", filePath.string()));
+    }
+
+    json j;
+    file >> j;
+    if (!j.contains("atlases")) {
+        return std::unexpected<std::string>(
+            std::format("Metadata file does not contain 'atlases' section: {}",
+                        filePath.string()));
+    }
+
+    for (const auto& atlasJson : j["atlases"]) {
+
+        if (!atlasJson.contains("entries")) {
+            continue;
+        }
+
+        for (const auto& entryJson : atlasJson["entries"]) {
+            SMetadataEntry entry;
+            entry.fileSize = entryJson.value("fileSize", 0ULL);
+            entry.lastModified = entryJson.value("lastModified", "");
+            datas.emplace(entryJson.value("file", std::string()), entry);
+        }
+    }
+
+    return datas;
+}
 } // namespace
 
-CGeneratedAtlas::CGeneratedAtlas(std::filesystem::path atlasFolder)
-    : mAtlasFolder(atlasFolder) {
+namespace Utility {
+
+bool AreMetadataValid(const std::filesystem::path& metadataFilePath,
+                      const std::map<std::string, CImageFile>& files) {
+
+    const auto expectedData = ParseJsonFile(metadataFilePath);
+    if (!expectedData.has_value()) {
+        throw std::runtime_error(
+            std::format("Failed to parse metadata file: {}. Error: {}. "
+                        "Removing the file and regerating it.",
+                        metadataFilePath.string(), expectedData.error()));
+    }
+    const auto& jsonData = expectedData.value();
+    if (files.size() != jsonData.size()) {
+        return true;
+    }
+    for (const auto& data : jsonData) {
+
+        for (size_t i = 0; i < files.size(); ++i) {
+            const auto& file = files.at(data.first);
+            const auto& entry = jsonData.at(data.first);
+            if (file.fileSize() != entry.fileSize ||
+                file.lastModified() != entry.lastModified) {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
+std::map<std::string, CImageFile>
+GatherFiles(const std::filesystem::path& assetsFolder) {
+    std::map<std::string, CImageFile> files;
     constexpr std::array<std::string_view, 2> validExtensions = {".png",
                                                                  ".jpg"};
     for (const auto& entry :
-         std::filesystem::directory_iterator(mAtlasFolder)) {
+         std::filesystem::directory_iterator(assetsFolder)) {
         if (entry.is_regular_file() &&
             std::any_of(validExtensions.begin(), validExtensions.end(),
                         [&](const std::string_view& ext) {
                             return entry.path().extension() == ext;
                         })) {
-            mFiles.emplace_back(entry.path());
+            files.try_emplace(entry.path().filename().string(), entry.path());
         }
     }
+    return files;
 }
 
-const std::vector<CImageFile>& CGeneratedAtlas::GetFiles() const {
-    return mFiles;
-}
-
-void CGeneratedAtlas::TryGenerate() {
+void Generate(const std::filesystem::path& outputFolder,
+              const std::string& name,
+              std::map<std::string, CImageFile>& files) {
     using namespace rectpack2D;
 
     std::vector<rect_wh> rects;
-    rects.reserve(mFiles.size());
-    for (auto& file : mFiles) {
+    rects.reserve(files.size());
+    std::vector<std::string> fileNames;
+    fileNames.reserve(files.size());
+    for (auto& [fileName, file] : files) {
         file.Load();
         rects.emplace_back(rect_wh(file.width(), file.height()));
+        fileNames.push_back(fileName);
     }
 
-    std::vector<AtlasInfo> atlases;
-    auto placements = pack_atlases(rects, atlases);
+    std::vector<SAtlasInfo> atlases;
+    auto placements = Pack(rects, fileNames, atlases);
     // Save the json metadata file
     nlohmann::json j;
     j["atlases"] = nlohmann::json::array();
@@ -123,14 +197,14 @@ void CGeneratedAtlas::TryGenerate() {
         atlas_json["width"] = width;
         atlas_json["height"] = height;
         atlas_json["file_name"] = std::format(
-            "{}_{}.png", mAtlasFolder.filename().string(), atlasIndex++);
+            "{}_{}.png", outputFolder.filename().string(), atlasIndex++);
         atlas_json["entries"] = nlohmann::json::array();
         j["atlases"].push_back(atlas_json);
 
         atlasPixels.emplace_back(width * height * 4, 0);
     }
     for (const auto& placement : placements) {
-        const auto& file = mFiles[placement.imgId];
+        const auto& file = files.at(placement.fileName);
         nlohmann::json entry;
         entry["file"] = file.fileName();
         entry["width"] = file.width();
@@ -161,24 +235,24 @@ void CGeneratedAtlas::TryGenerate() {
         }
     }
     atlasIndex = 0;
-    fpng::fpng_init();
     for (std::size_t i = 0; i < atlases.size(); ++i) {
         const auto& atlas = atlases[i];
         const uint32_t width = nextPowerOfTwo(atlas.w);
         const uint32_t height = nextPowerOfTwo(atlas.h);
 
         const auto outputPath =
-            (mAtlasFolder / std::format("{}_{}.png",
-                                        mAtlasFolder.filename().string(),
-                                        atlasIndex++))
+            (outputFolder / std::format("{}_{}.png", name, atlasIndex++))
                 .string();
         if (!fpng::fpng_encode_image_to_file(
                 outputPath.c_str(), atlasPixels[i].data(), width, height, 4)) {
-            // Handle encoding failure.
+            throw std::runtime_error(
+                std::format("Failed to write atlas image: {}", outputPath));
         }
     }
-
-    std::ofstream metadataFile(mAtlasFolder / "atlas_metadata.json");
-    metadataFile << j.dump(4);
-    metadataFile.close();
+    const auto metadataFile =
+        (outputFolder / std::format("{}_metadata.json", name)).string();
+    std::ofstream jsonOut(metadataFile);
+    jsonOut << j.dump(4);
+    jsonOut.close();
 }
+} // namespace Utility

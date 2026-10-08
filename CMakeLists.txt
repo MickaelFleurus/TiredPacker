@@ -30,10 +30,10 @@ setup_argparse()
 
 add_executable(TiredPacker 
 src/main.cpp
-src/GeneratedAtlas.cpp
-src/AtlasMetadata.cpp
+src/AtlasUtils.cpp
 src/ImageFile.cpp
 src/AtlasExplorer.cpp
+src/WuffsImplementation.cpp
 )
 
 target_link_libraries(TiredPacker PRIVATE
