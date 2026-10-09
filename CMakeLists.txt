@@ -1,4 +1,19 @@
 cmake_minimum_required(VERSION 4.4)
+
+# Awful but necessary because of ninja apparently.
+if(CMAKE_HOST_APPLE AND NOT CMAKE_OSX_SYSROOT)
+    execute_process(
+        COMMAND xcrun --sdk macosx --show-sdk-path
+        RESULT_VARIABLE MACOS_SDK_RESULT
+        OUTPUT_VARIABLE MACOS_SDK_PATH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(MACOS_SDK_RESULT EQUAL 0 AND MACOS_SDK_PATH)
+        set(CMAKE_OSX_SYSROOT "${MACOS_SDK_PATH}" CACHE PATH "macOS SDK used for compilation" FORCE)
+    endif()
+endif()
+
 project(TiredPacker VERSION 1.0 LANGUAGES C CXX)
 include(FetchContent)
 
