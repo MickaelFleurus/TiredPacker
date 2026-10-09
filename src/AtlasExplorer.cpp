@@ -17,6 +17,11 @@ CAtlasExplorer::CAtlasExplorer(const std::filesystem::path& resourceFolder)
 }
 
 int CAtlasExplorer::Explore(const std::filesystem::path& outputFolder) {
+    if (!std::filesystem::exists(mResourceFolder)) {
+        std::cerr << "Resource folder does not exist: " << mResourceFolder
+                  << std::endl;
+        return 0;
+    }
     int failedGenerations = 0;
     for (auto const& dir_entry :
          std::filesystem::directory_iterator{mResourceFolder}) {
