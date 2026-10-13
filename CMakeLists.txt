@@ -53,6 +53,15 @@ add_library(TiredPackerLib
     src/WuffsImplementation.cpp
 )
 
+add_library(TiredPackerReadingLib
+    src/AtlasReader.cpp)
+
+target_include_directories(TiredPackerReadingLib PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+target_link_libraries(TiredPackerReadingLib PRIVATE
+    nlohmann_json::nlohmann_json)
+
 target_link_libraries(TiredPackerLib PUBLIC
     wuffs
     FPNG::FPNG

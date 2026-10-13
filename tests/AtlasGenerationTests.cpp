@@ -5,6 +5,7 @@
 #include <gtest/gtest.h>
 #include <nlohmann/json.hpp>
 
+#include "AtlasReader.h"
 #include "AtlasUtils.h"
 #include "ImageFile.h"
 #include "TestUtils.h"
@@ -38,4 +39,19 @@ TEST(AtlasGenerationTests, GenerateWritesAtlasAndMetadata) {
     EXPECT_EQ(metadata["version"], 1);
     EXPECT_EQ(metadata["atlases"].size(), 1);
     EXPECT_EQ(metadata["atlases"][0]["entries"].size(), 2);
+    EXPECT_EQ(metadata["atlases"][0]["file_name"], "spritepack_0.png");
+
+    const auto parsed = AtlasReader::ParseMetadata(metadataPath);
+    ASSERT_EQ(parsed.version, 1);
+    ASSERT_EQ(parsed.atlases.size(), 1);
+    EXPECT_EQ(parsed.atlases[0].fileName, "spritepack_0.png");
+    EXPECT_EQ(parsed.atlases[0].width, 4);
+    EXPECT_EQ(parsed.atlases[0].height, 2);
+
+    const auto found = AtlasReader::FindEntry(parsed, "a.png");
+    ASSERT_TRUE(found.has_value());
+    EXPECT_EQ(found->entry->fileName, "a.png");
+    EXPECT_EQ(found->entry->width, 1);
+    EXPECT_EQ(found->atlas->fileName, "spritepack_0.png");
+    EXPECT_FALSE(AtlasReader::FindEntry(parsed, "missing.png").has_value());
 }

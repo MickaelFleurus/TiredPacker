@@ -203,8 +203,7 @@ void Generate(const std::filesystem::path& outputFolder,
         nlohmann::json atlas_json;
         atlas_json["width"] = width;
         atlas_json["height"] = height;
-        atlas_json["file_name"] = std::format(
-            "{}_{}.png", outputFolder.filename().string(), atlasIndex++);
+        atlas_json["file_name"] = std::format("{}_{}.png", name, atlasIndex++);
         atlas_json["entries"] = nlohmann::json::array();
         j["atlases"].push_back(atlas_json);
 

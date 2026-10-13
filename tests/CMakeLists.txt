@@ -9,6 +9,7 @@ add_executable(TiredPackerTests
 
 target_link_libraries(TiredPackerTests PRIVATE
     TiredPackerLib
+    TiredPackerReadingLib
     GTest::gtest_main
 )
 
