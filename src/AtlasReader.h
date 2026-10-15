@@ -30,6 +30,7 @@ struct Atlas {
 
 struct Metadata {
     uint32_t version = 0;
+    std::string name;
     std::vector<Atlas> atlases;
 };
 

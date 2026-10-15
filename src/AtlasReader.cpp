@@ -24,6 +24,7 @@ Metadata ParseMetadata(const std::filesystem::path& metadataPath) {
     try {
         const auto document = nlohmann::json::parse(input);
         Metadata metadata;
+        metadata.name = document.at("name").get<std::string>();
         metadata.version = document.at("version").get<uint32_t>();
         if (metadata.version != kSupportedMetadataVersion) {
             throw std::runtime_error(std::format(
