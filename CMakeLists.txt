@@ -17,7 +17,7 @@ endif()
 project(TiredPacker VERSION 1.0 LANGUAGES C CXX)
 include(FetchContent)
 
-set(ATLAS_METADATA_VERSION 1)
+set(ATLAS_METADATA_VERSION 2)
 
 # Add cmake directory to module path
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

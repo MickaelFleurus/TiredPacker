@@ -194,6 +194,7 @@ void Generate(const std::filesystem::path& outputFolder,
     // Save the json metadata file
     nlohmann::json j;
     j["version"] = kAtlasMetadataVersion;
+    j["name"] = name;
     j["atlases"] = nlohmann::json::array();
     std::size_t atlasIndex = 0;
     std::vector<std::vector<uint8_t>> atlasPixels;
