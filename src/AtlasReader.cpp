@@ -10,7 +10,7 @@
 namespace AtlasReader {
 namespace {
 
-constexpr uint32_t kSupportedMetadataVersion = 1;
+constexpr uint32_t kSupportedMetadataVersion = 2;
 
 } // namespace
 
