@@ -24,6 +24,7 @@ TEST(MetadataTests, ValidMetadataReturnsTrue) {
     std::ofstream metadata(metadataPath);
     metadata << "{\n"
              << "  \"version\": 1,\n"
+             << "  \"name\": \"name\",\n"
              << "  \"atlases\": [\n"
              << "    {\n"
              << "      \"entries\": [\n"

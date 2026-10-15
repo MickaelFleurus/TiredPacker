@@ -27,6 +27,7 @@ struct SMetadataEntry {
 
 struct SAtlasMetadata {
     int version = 0;
+    std::string name;
     std::map<std::string, SMetadataEntry> entries;
 };
 
@@ -108,6 +109,7 @@ ParseJsonFile(const std::filesystem::path& filePath) {
                         filePath.string()));
     }
     metadata.version = j.value("version", 0);
+    metadata.name = j.value("name", "default_name");
 
     for (const auto& atlasJson : j["atlases"]) {
 
