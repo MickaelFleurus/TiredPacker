@@ -14,6 +14,7 @@ struct SPlacement {
     int atlas;
     std::string fileName;
     rectpack2D::rect_xywh rect;
+    int padding;
 };
 
 struct SAtlasInfo {
@@ -33,6 +34,14 @@ struct SAtlasMetadata {
 
 constexpr int kAtlasMetadataVersion = ATLAS_METADATA_VERSION;
 
+using namespace rectpack2D;
+constexpr bool kAllowFlip = false;
+using spaces_type = empty_spaces<kAllowFlip, default_empty_spaces>;
+using rect_type = output_rect_t<spaces_type>;
+constexpr int kMaxSize = 2048;
+constexpr int kPadding = 1;
+constexpr int kDiscardStep = 1;
+
 constexpr int nextPowerOfTwo(int value) {
     if (value <= 1) {
         return 1;
@@ -45,16 +54,49 @@ constexpr int nextPowerOfTwo(int value) {
     return power;
 }
 
+void TightenPlacements(std::vector<SPlacement>& placements,
+                       std::vector<SAtlasInfo>& atlases) {
+
+    for (int a = 0; a < (int)atlases.size(); ++a) {
+        // Gather this atlas's placements
+        std::vector<SPlacement*> group;
+        std::vector<rect_type> rects;
+        for (auto& p : placements) {
+            if (p.atlas == a) {
+                rects.push_back(p.rect);
+                rects.back().w += 2 * p.padding;
+                rects.back().h += 2 * p.padding;
+                group.push_back(&p);
+            }
+        }
+
+        const auto size = rectpack2D::find_best_packing<spaces_type>(
+            rects, rectpack2D::make_finder_input(
+                       kMaxSize, kDiscardStep,
+                       [](rect_type&) {
+                           return rectpack2D::callback_result::CONTINUE_PACKING;
+                       },
+                       [](rect_type&) {
+                           return rectpack2D::callback_result::ABORT_PACKING;
+                       },
+                       rectpack2D::flipping_option::DISABLED));
+
+        if (size.w == 0 || size.h == 0)
+            continue;
+
+        for (size_t i = 0; i < group.size(); ++i) {
+            group[i]->rect.x = rects[i].x + group[i]->padding;
+            group[i]->rect.y = rects[i].y + group[i]->padding;
+        }
+
+        atlases[a].w = nextPowerOfTwo(size.w);
+        atlases[a].h = nextPowerOfTwo(size.h);
+    }
+}
+
 std::vector<SPlacement> Pack(const std::vector<rectpack2D::rect_wh>& sizes,
                              const std::vector<std::string>& fileNames,
                              std::vector<SAtlasInfo>& atlasesOut) {
-    using namespace rectpack2D;
-    constexpr bool allow_flip = false;
-    using spaces_type = empty_spaces<allow_flip, default_empty_spaces>;
-    using rect_type = output_rect_t<spaces_type>;
-
-    constexpr int max_side = 2048;
-    constexpr int discard_step = 1;
 
     std::vector<std::size_t> pending(sizes.size());
     std::iota(pending.begin(), pending.end(), 0);
@@ -69,14 +111,26 @@ std::vector<SPlacement> Pack(const std::vector<rectpack2D::rect_wh>& sizes,
     atlasesOut.clear();
 
     while (!pending.empty()) {
-        spaces_type bin(rect_wh(max_side, max_side));
+        spaces_type bin(rect_wh(kMaxSize, kMaxSize));
         std::vector<std::size_t> leftover;
         SAtlasInfo info;
         const int atlas_index = (int)atlasesOut.size();
 
         for (std::size_t id : pending) {
-            if (const auto placed = bin.insert(sizes[id])) {
-                out[id] = {atlas_index, fileNames[id], *placed};
+            const int padding =
+                sizes[id].w + 2 * kPadding <= kMaxSize &&
+                        sizes[id].h + 2 * kPadding <= kMaxSize
+                    ? kPadding
+                    : 0;
+            const rect_wh packedSize(sizes[id].w + 2 * padding,
+                                     sizes[id].h + 2 * padding);
+            if (const auto placed = bin.insert(packedSize)) {
+                rect_xywh imageRect = *placed;
+                imageRect.x += padding;
+                imageRect.y += padding;
+                imageRect.w = sizes[id].w;
+                imageRect.h = sizes[id].h;
+                out[id] = {atlas_index, fileNames[id], imageRect, padding};
                 info.w = std::max(info.w, placed->x + placed->w);
                 info.h = std::max(info.h, placed->y + placed->h);
             } else {
@@ -87,6 +141,7 @@ std::vector<SPlacement> Pack(const std::vector<rectpack2D::rect_wh>& sizes,
         atlasesOut.push_back(info);
         pending = std::move(leftover);
     }
+
     return out;
 }
 
@@ -193,6 +248,7 @@ void Generate(const std::filesystem::path& outputFolder,
 
     std::vector<SAtlasInfo> atlases;
     auto placements = Pack(rects, fileNames, atlases);
+    TightenPlacements(placements, atlases);
     // Save the json metadata file
     nlohmann::json j;
     j["version"] = kAtlasMetadataVersion;
@@ -201,8 +257,8 @@ void Generate(const std::filesystem::path& outputFolder,
     std::size_t atlasIndex = 0;
     std::vector<std::vector<uint8_t>> atlasPixels;
     for (const auto& atlas : atlases) {
-        std::size_t width = nextPowerOfTwo(atlas.w);
-        std::size_t height = nextPowerOfTwo(atlas.h);
+        std::size_t width = atlas.w;
+        std::size_t height = atlas.h;
         nlohmann::json atlas_json;
         atlas_json["width"] = width;
         atlas_json["height"] = height;
@@ -229,8 +285,8 @@ void Generate(const std::filesystem::path& outputFolder,
         const auto& pixels = file.pixels();
         auto& atlas = atlasPixels[placement.atlas];
 
-        const std::size_t atlasWidth = static_cast<std::size_t>(
-            nextPowerOfTwo(atlases[placement.atlas].w));
+        const std::size_t atlasWidth =
+            static_cast<std::size_t>(atlases[placement.atlas].w);
         const std::size_t rowBytes = static_cast<std::size_t>(file.width()) * 4;
         for (uint32_t row = 0; row < file.height(); ++row) {
             const std::size_t destinationOffset =
@@ -246,8 +302,8 @@ void Generate(const std::filesystem::path& outputFolder,
     atlasIndex = 0;
     for (std::size_t i = 0; i < atlases.size(); ++i) {
         const auto& atlas = atlases[i];
-        const uint32_t width = nextPowerOfTwo(atlas.w);
-        const uint32_t height = nextPowerOfTwo(atlas.h);
+        const uint32_t width = atlas.w;
+        const uint32_t height = atlas.h;
 
         const auto outputPath =
             (outputFolder / std::format("{}_{}.png", name, atlasIndex++))

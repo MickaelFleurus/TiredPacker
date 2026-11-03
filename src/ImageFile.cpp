@@ -78,7 +78,7 @@ void CImageFile::Load() {
 
     if (!result.error_message.empty()) {
         throw std::runtime_error(
-            std::format("Failed to decode image file[] : {}", mPath.string(),
+            std::format("Failed to decode image file {}: {}", mPath.string(),
                         result.error_message));
     }
 
